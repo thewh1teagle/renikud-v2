@@ -6,13 +6,12 @@ This module handles loading the trained model and generating nikud predictions.
 
 import torch
 from transformers import AutoTokenizer
-from typing import List, Tuple
+from typing import List
 import unicodedata
 
-from model import HebrewNikudModel, load_model
+from model import HebrewNikudModel
 from dataset import ID_TO_VOWEL
 from constants import (
-    A_PATAH, E_TSERE, I_HIRIK, O_HOLAM, U_QUBUT,
     DAGESH, S_SIN, STRESS_HATAMA,
     CAN_HAVE_DAGESH, CAN_HAVE_SIN, LETTERS
 )

@@ -11,3 +11,8 @@ dependencies = [
     "datasets>=2.14.0",
     "accelerate>=0.20.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.6",
+]

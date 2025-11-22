@@ -5,14 +5,12 @@ This script trains the model on a single example to verify it can learn.
 """
 
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 import os
 from pathlib import Path
 
 from model import HebrewNikudModel
-from dataset import NikudDataset, prepare_training_data
+from dataset import prepare_training_data
 
 
 def train_single_example(
@@ -116,7 +114,7 @@ def train_single_example(
     # Save final model
     final_path = os.path.join(checkpoint_dir, 'final_model.pt')
     torch.save(model.state_dict(), final_path)
-    print(f"\nTraining complete!")
+    print("\nTraining complete!")
     print(f"Best loss: {best_loss:.4f}")
     print(f"Models saved to: {checkpoint_dir}")
     
