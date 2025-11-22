@@ -1,15 +1,15 @@
 [project]
 name = "renikud-v2"
 version = "0.1.0"
-description = "Add your description here"
+description = "Rethinking Hebrew nikud with a new approach to models and G2P"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "accelerate>=1.12.0",
+    "datasets>=4.4.1",
     "regex>=2025.11.3",
-    "torch>=2.0.0",
-    "transformers>=4.30.0",
-    "datasets>=2.14.0",
-    "accelerate>=0.20.0",
+    "torch>=2.9.1",
+    "transformers>=4.57.1",
 ]
 
 [dependency-groups]

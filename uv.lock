@@ -1244,11 +1244,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", specifier = ">=0.20.0" },
-    { name = "datasets", specifier = ">=2.14.0" },
+    { name = "accelerate", specifier = ">=1.12.0" },
+    { name = "datasets", specifier = ">=4.4.1" },
     { name = "regex", specifier = ">=2025.11.3" },
-    { name = "torch", specifier = ">=2.0.0" },
-    { name = "transformers", specifier = ">=4.30.0" },
+    { name = "torch", specifier = ">=2.9.1" },
+    { name = "transformers", specifier = ">=4.57.1" },
 ]
 
 [package.metadata.requires-dev]
