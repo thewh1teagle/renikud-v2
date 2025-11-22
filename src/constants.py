@@ -7,7 +7,7 @@ E_TSERE = '\u05b5' # e
 I_HIRIK = '\u05b4' # i
 O_HOLAM = '\u05b9' # o
 U_QUBUT = '\u05bb' # u
-U_DAGESH = '\u05bc' # u/dagesh mark
+DAGESH = '\u05bc' # u/dagesh mark
 S_SIN = '\u05c2' # s (sin)
 STRESS_HATAMA = '\u05ab' # stress mark
 

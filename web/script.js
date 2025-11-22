@@ -4,7 +4,7 @@ const E_TSERE = '\u05b5';      // e
 const I_HIRIK = '\u05b4';      // i
 const O_HOLAM = '\u05b9';      // o
 const U_QUBUT = '\u05bb';      // u
-const U_DAGESH = '\u05bc';     // u/dagesh mark
+const DAGESH = '\u05bc';     // u/dagesh mark
 const S_SIN = '\u05c2';        // s (sin)
 const STRESS_HATAMA = '\u05ab'; // stress mark
 
