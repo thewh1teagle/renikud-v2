@@ -1,0 +1,95 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#textArea {
+    width: 100%;
+    flex: 1;
+    padding: 20px;
+    font-size: 18px;
+    font-family: 'Arial', 'David', 'Tahoma', sans-serif;
+    border: none;
+    outline: none;
+    resize: none;
+    line-height: 1.6;
+}
+
+#textArea:focus {
+    outline: 2px solid #4CAF50;
+    outline-offset: -2px;
+}
+
+#nikudPanel {
+    width: 100%;
+    background: linear-gradient(to bottom, #f8f9fa, #ffffff);
+    border-top: 2px solid #e0e0e0;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.nikud-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.nikud-button {
+    background: white;
+    border: 2px solid #4CAF50;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 16px;
+    font-family: 'Arial', 'David', 'Tahoma', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    min-width: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.nikud-button:hover {
+    background: #4CAF50;
+    transform: translateY(-2px);
+    box-shadow: 0 3px 8px rgba(76, 175, 80, 0.3);
+}
+
+.nikud-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.nikud-label {
+    font-size: 9px;
+    color: #666;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.nikud-button:hover .nikud-label {
+    color: white;
+}
+
+.nikud-char {
+    font-size: 18px;
+    font-weight: bold;
+}

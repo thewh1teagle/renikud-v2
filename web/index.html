@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hebrew Text Normalizer</title>
+   <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <textarea id="textArea" placeholder="הקלד טקסט עברי כאן..." 
+              autocorrect="off" 
+              autocomplete="off" 
+              autocapitalize="off" 
+              spellcheck="false"></textarea>
+
+    <div id="nikudPanel">
+        <!-- Row 1: Vowels (a, e, i, o, u) -->
+        <div class="nikud-row">
+            <button class="nikud-button" data-nikud="&#x05b7;" title="Add Patah (a)">
+                <span class="nikud-char">אַ</span>
+                <span class="nikud-label">Patah (a)</span>
+            </button>
+            
+            <button class="nikud-button" data-nikud="&#x05b5;" title="Add Tsere (e)">
+                <span class="nikud-char">אֵ</span>
+                <span class="nikud-label">Tsere (e)</span>
+            </button>
+            
+            <button class="nikud-button" data-nikud="&#x05b4;" title="Add Hirik (i)">
+                <span class="nikud-char">אִ</span>
+                <span class="nikud-label">Hirik (i)</span>
+            </button>
+            
+            <button class="nikud-button" data-nikud="&#x05b9;" title="Add Holam (o)">
+                <span class="nikud-char">אֹ</span>
+                <span class="nikud-label">Holam (o)</span>
+            </button>
+            
+            <button class="nikud-button" data-nikud="&#x05bb;" title="Add Qubut (u)">
+                <span class="nikud-char">אֻ</span>
+                <span class="nikud-label">Qubut (u)</span>
+            </button>
+        </div>
+        
+        <!-- Row 2: Special marks -->
+        <div class="nikud-row">
+            <button class="nikud-button" data-nikud="&#x05bc;" title="Add Dagesh">
+                <span class="nikud-char">בּ</span>
+                <span class="nikud-label">Dagesh</span>
+            </button>
+            
+            <button class="nikud-button" data-nikud="&#x05c2;" title="Add Sin (s)">
+                <span class="nikud-char">שׂ</span>
+                <span class="nikud-label">Sin (s)</span>
+            </button>
+            
+            <button class="nikud-button" data-nikud="&#x05ab;" title="Add Hatama (stress)">
+                <span class="nikud-char">א֫</span>
+                <span class="nikud-label">Hatama</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+

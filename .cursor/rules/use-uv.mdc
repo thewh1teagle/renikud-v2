@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+uv is the package manager for this project.
+
+Example:
+- uv run python main.py
+- uv add fastapi
