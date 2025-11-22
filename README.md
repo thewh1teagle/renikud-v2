@@ -31,3 +31,11 @@ uv run python src/inference.py --checkpoint checkpoints/best_model.pt
 uv run python src/inference.py --checkpoint checkpoints/best_model.pt --file input.txt
 ```
 
+
+Prepare for training:
+
+```console
+wget https://huggingface.co/datasets/thewh1teagle/phonikud-data/resolve/main/knesset_nikud_v6.txt.7z
+sudo apt install p7zip-full -y
+7z x knesset_nikud_v6.txt.7z
+```

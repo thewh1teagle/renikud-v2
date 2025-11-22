@@ -173,7 +173,7 @@ def main():
     parser = argparse.ArgumentParser(description='Predict nikud for Hebrew text')
     parser.add_argument('--checkpoint', type=str, required=True,
                        help='Path to model checkpoint')
-    parser.add_argument('--text', type=str, default=None,
+    parser.add_argument('--text', type=str, default="את רוצה שאני יביא לך את זה? ואתה גם רוצה?",
                        help='Text to add nikud to')
     parser.add_argument('--file', type=str, default=None,
                        help='File containing text to add nikud to')

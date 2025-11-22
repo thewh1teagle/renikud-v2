@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+Whenever you're working with Hebrew text and need to normalize it, always use the NFD normalization.

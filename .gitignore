@@ -13,3 +13,6 @@ wheels/
 checkpoints/
 !checkpoints/.gitkeep
 wandb/
+*.7z
+*.txt
+*.pt

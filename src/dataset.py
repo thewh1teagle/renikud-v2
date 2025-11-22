@@ -160,7 +160,7 @@ def prepare_training_data(nikud_text: str, tokenizer) -> Dict[str, torch.Tensor]
         'sin_labels': sin_labels,
         'stress_labels': stress_labels,
         'plain_text': plain_text,
-        'original_text': nikud_text,
+        'original_text': nikud_text,  # Already in NFD format
     }
 
 
@@ -201,13 +201,13 @@ def load_dataset_from_file(file_path: str) -> List[str]:
     return texts
 
 
-def split_dataset(texts: List[str], eval_ratio: float, seed: int = 42) -> tuple:
+def split_dataset(texts: List[str], eval_max_lines: int, seed: int = 42) -> tuple:
     """
     Split dataset into train and eval sets.
     
     Args:
         texts: List of texts with nikud marks
-        eval_ratio: Ratio of data to use for evaluation (e.g., 0.2 for 20%)
+        eval_max_lines: Maximum number of lines to use for evaluation
         seed: Random seed for reproducibility
         
     Returns:
@@ -222,8 +222,8 @@ def split_dataset(texts: List[str], eval_ratio: float, seed: int = 42) -> tuple:
     shuffled_texts = texts.copy()
     random.shuffle(shuffled_texts)
     
-    # Calculate split point
-    eval_size = int(len(shuffled_texts) * eval_ratio)
+    # Use minimum of eval_max_lines and total texts
+    eval_size = min(eval_max_lines, len(shuffled_texts))
     
     # Split
     eval_texts = shuffled_texts[:eval_size]

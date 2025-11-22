@@ -85,8 +85,9 @@ class HebrewNikudModel(nn.Module):
         sin_logits = self.sin_classifier(sequence_output)       # [batch_size, seq_len, 2]
         stress_logits = self.stress_classifier(sequence_output)  # [batch_size, seq_len, 2]
         
-        # Apply masking for invalid predictions (if tokenizer is provided)
-        if tokenizer is not None:
+        # Apply masking for invalid predictions only during inference (not training)
+        # During training, let the model learn naturally which characters can have dagesh/sin
+        if tokenizer is not None and not self.training:
             dagesh_logits = self._mask_invalid_dagesh(input_ids, dagesh_logits, tokenizer)
             sin_logits = self._mask_invalid_sin(input_ids, sin_logits, tokenizer)
         
@@ -141,7 +142,7 @@ class HebrewNikudModel(nn.Module):
         """
         Mask dagesh predictions for characters that cannot have dagesh.
         
-        Sets logit for positive class to -inf for invalid positions.
+        Only used during inference. Sets logit to -inf for invalid positions.
         """
         # Get the actual characters from input_ids
         for batch_idx in range(input_ids.shape[0]):
@@ -150,6 +151,7 @@ class HebrewNikudModel(nn.Module):
                 token_char = tokenizer.decode([token_id])
                 
                 # If not in CAN_HAVE_DAGESH, mask the positive class
+                # This is only used during inference, so -inf is safe
                 if token_char not in CAN_HAVE_DAGESH:
                     dagesh_logits[batch_idx, token_idx, 1] = float('-inf')
         
@@ -164,7 +166,7 @@ class HebrewNikudModel(nn.Module):
         """
         Mask sin predictions for characters that cannot have sin.
         
-        Sets logit for positive class to -inf for invalid positions.
+        Only used during inference. Sets logit to -inf for invalid positions.
         """
         # Get the actual characters from input_ids
         for batch_idx in range(input_ids.shape[0]):
@@ -173,6 +175,7 @@ class HebrewNikudModel(nn.Module):
                 token_char = tokenizer.decode([token_id])
                 
                 # If not shin, mask the positive class
+                # This is only used during inference, so -inf is safe
                 if token_char not in CAN_HAVE_SIN:
                     sin_logits[batch_idx, token_idx, 1] = float('-inf')
         

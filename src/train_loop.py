@@ -45,7 +45,8 @@ def train_epoch(
     device: str,
     tokenizer,
     epoch: int,
-    total_epochs: int
+    total_epochs: int,
+    max_grad_norm: float = 1.0
 ) -> dict:
     """
     Train for one epoch.
@@ -102,6 +103,10 @@ def train_epoch(
         # Backward pass
         optimizer.zero_grad()
         loss.backward()
+        
+        # Gradient clipping to prevent explosion
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
+        
         optimizer.step()
         
         # Accumulate losses
@@ -152,13 +157,16 @@ def main():
     print(f"✓ Using device: {device}")
     
     # Initialize wandb
-    wandb.init(
-        project=config.wandb_project,
-        name=config.wandb_run_name,
-        mode=config.wandb_mode,
-        config=vars(config)
-    )
-    print(f"✓ Wandb initialized (mode: {config.wandb_mode})")
+    if config.wandb_mode != "disabled":
+        wandb.init(
+            project=config.wandb_project,
+            name=config.wandb_run_name,
+            mode=config.wandb_mode,
+            config=vars(config)
+        )
+        print(f"✓ Wandb initialized (mode: {config.wandb_mode})")
+    else:
+        print(f"✓ Wandb disabled")
     
     # Load tokenizer
     print("\n" + "=" * 80)
@@ -172,8 +180,8 @@ def main():
     texts = load_dataset_from_file(config.train_file)
     print(f"✓ Loaded {len(texts)} texts")
     
-    print(f"\nSplitting dataset (eval_ratio={config.eval_ratio})...")
-    train_texts, eval_texts = split_dataset(texts, config.eval_ratio, config.seed)
+    print(f"\nSplitting dataset (eval_max_lines={config.eval_max_lines})...")
+    train_texts, eval_texts = split_dataset(texts, config.eval_max_lines, config.seed)
     print(f"✓ Train: {len(train_texts)} texts")
     print(f"✓ Eval: {len(eval_texts)} texts")
     
@@ -213,10 +221,11 @@ def main():
     print(f"  Model size: ~{total_params * 4 / (1024**2):.2f} MB")
     
     # Log to wandb
-    wandb.config.update({
-        'total_params': total_params,
-        'trainable_params': trainable_params
-    })
+    if config.wandb_mode != "disabled":
+        wandb.config.update({
+            'total_params': total_params,
+            'trainable_params': trainable_params
+        })
     
     # Setup optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
@@ -237,7 +246,7 @@ def main():
         # Train
         train_metrics = train_epoch(
             model, train_loader, optimizer, device, tokenizer,
-            epoch, config.max_epochs
+            epoch, config.max_epochs, config.max_grad_norm
         )
         
         # Evaluate
@@ -250,12 +259,13 @@ def main():
         eval_metrics_prefixed = {f'eval_{k}': v for k, v in eval_metrics.items()}
         
         # Log to wandb
-        wandb.log({
-            **train_metrics,
-            **eval_metrics_prefixed,
-            'epoch': epoch,
-            'learning_rate': config.learning_rate
-        })
+        if config.wandb_mode != "disabled":
+            wandb.log({
+                **train_metrics,
+                **eval_metrics_prefixed,
+                'epoch': epoch,
+                'learning_rate': config.learning_rate
+            })
         
         # Print epoch summary
         print(f"\nEpoch {epoch} Summary:")
@@ -296,7 +306,8 @@ def main():
     print("=" * 80)
     
     # Finish wandb
-    wandb.finish()
+    if config.wandb_mode != "disabled":
+        wandb.finish()
 
 
 if __name__ == '__main__':

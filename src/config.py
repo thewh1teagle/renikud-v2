@@ -13,13 +13,14 @@ class Config:
     
     # Dataset
     train_file: str = "data/train.txt"
-    eval_ratio: float = 0.2
+    eval_max_lines: int = 100
     seed: int = 42
     
     # Training
     batch_size: int = 8
     learning_rate: float = 1e-4
     max_epochs: int = 10
+    max_grad_norm: float = 1.0
     
     # Model
     model_name: str = "dicta-il/dictabert-large-char"
@@ -33,7 +34,7 @@ class Config:
     device: str = None  # None for auto-detect
     
     # Wandb
-    wandb_mode: str = "offline"
+    wandb_mode: str = "disabled"
     wandb_project: str = "hebrew-nikud"
     wandb_run_name: str = None
     
@@ -54,8 +55,8 @@ class Config:
         # Dataset arguments
         parser.add_argument("--train-file", type=str, default=cls.train_file,
                           help="Path to training data file")
-        parser.add_argument("--eval-ratio", type=float, default=cls.eval_ratio,
-                          help="Ratio of data to use for evaluation")
+        parser.add_argument("--eval-max-lines", type=int, default=cls.eval_max_lines,
+                          help="Maximum number of lines to use for evaluation")
         parser.add_argument("--seed", type=int, default=cls.seed,
                           help="Random seed for reproducibility")
         
@@ -66,6 +67,8 @@ class Config:
                           help="Learning rate")
         parser.add_argument("--max-epochs", type=int, default=cls.max_epochs,
                           help="Maximum number of training epochs")
+        parser.add_argument("--max-grad-norm", type=float, default=cls.max_grad_norm,
+                          help="Maximum gradient norm for clipping")
         
         # Model arguments
         parser.add_argument("--model-name", type=str, default=cls.model_name,
@@ -95,11 +98,12 @@ class Config:
         # Create config from args
         config = cls(
             train_file=args.train_file,
-            eval_ratio=args.eval_ratio,
+            eval_max_lines=args.eval_max_lines,
             seed=args.seed,
             batch_size=args.batch_size,
             learning_rate=args.lr,
             max_epochs=args.max_epochs,
+            max_grad_norm=args.max_grad_norm,
             model_name=args.model_name,
             dropout=args.dropout,
             checkpoint_dir=args.checkpoint_dir,

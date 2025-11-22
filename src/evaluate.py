@@ -10,13 +10,14 @@ from torch.utils.data import DataLoader
 from typing import Dict
 from tqdm import tqdm
 import unicodedata
+import jiwer
 
 
 def calculate_cer(predicted_text: str, target_text: str) -> float:
     """
     Calculate Character Error Rate between predicted and target text.
     
-    Uses Levenshtein distance at character level.
+    Uses jiwer library for standard CER calculation.
     
     Args:
         predicted_text: Predicted text with nikud
@@ -25,23 +26,23 @@ def calculate_cer(predicted_text: str, target_text: str) -> float:
     Returns:
         CER as a float (0.0 = perfect, 1.0 = completely wrong)
     """
-    # Normalize both texts
+    # Normalize both texts for consistent Unicode representation
     predicted_text = unicodedata.normalize('NFD', predicted_text)
     target_text = unicodedata.normalize('NFD', target_text)
     
-    # Calculate Levenshtein distance
-    if len(target_text) == 0:
-        return 0.0 if len(predicted_text) == 0 else 1.0
+    # Handle empty strings
+    if not target_text:
+        return 0.0 if not predicted_text else 1.0
     
-    distance = levenshtein_distance(predicted_text, target_text)
-    return distance / len(target_text)
+    # jiwer expects (reference, hypothesis) order
+    return jiwer.cer(target_text, predicted_text)
 
 
 def calculate_wer(predicted_text: str, target_text: str) -> float:
     """
     Calculate Word Error Rate between predicted and target text.
     
-    Uses Levenshtein distance at word level.
+    Uses jiwer library for standard WER calculation.
     
     Args:
         predicted_text: Predicted text with nikud
@@ -50,41 +51,16 @@ def calculate_wer(predicted_text: str, target_text: str) -> float:
     Returns:
         WER as a float (0.0 = perfect, 1.0 = completely wrong)
     """
-    # Split into words
-    predicted_words = predicted_text.split()
-    target_words = target_text.split()
+    # Normalize both texts for consistent Unicode representation
+    predicted_text = unicodedata.normalize('NFD', predicted_text)
+    target_text = unicodedata.normalize('NFD', target_text)
     
-    if len(target_words) == 0:
-        return 0.0 if len(predicted_words) == 0 else 1.0
+    # Handle empty strings
+    if not target_text.strip():
+        return 0.0 if not predicted_text.strip() else 1.0
     
-    distance = levenshtein_distance(predicted_words, target_words)
-    return distance / len(target_words)
-
-
-def levenshtein_distance(seq1, seq2):
-    """
-    Calculate Levenshtein distance between two sequences.
-    
-    Works with both strings and lists.
-    """
-    if len(seq1) < len(seq2):
-        return levenshtein_distance(seq2, seq1)
-    
-    if len(seq2) == 0:
-        return len(seq1)
-    
-    previous_row = range(len(seq2) + 1)
-    for i, c1 in enumerate(seq1):
-        current_row = [i + 1]
-        for j, c2 in enumerate(seq2):
-            # Cost of insertions, deletions, or substitutions
-            insertions = previous_row[j + 1] + 1
-            deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (c1 != c2)
-            current_row.append(min(insertions, deletions, substitutions))
-        previous_row = current_row
-    
-    return previous_row[-1]
+    # jiwer expects (reference, hypothesis) order
+    return jiwer.wer(target_text, predicted_text)
 
 
 def reconstruct_text_from_predictions(
@@ -102,12 +78,22 @@ def reconstruct_text_from_predictions(
     """
     from dataset import ID_TO_VOWEL
     from constants import DAGESH, S_SIN, STRESS_HATAMA, CAN_HAVE_DAGESH, CAN_HAVE_SIN, LETTERS
+    from normalize import normalize
     
     result = []
     
-    # Skip [CLS] and [SEP] tokens
-    for i in range(1, len(input_ids) - 1):
+    # Get special token IDs
+    sep_token_id = tokenizer.sep_token_id
+    pad_token_id = tokenizer.pad_token_id
+    
+    # Skip [CLS] and stop at [SEP] or [PAD]
+    for i in range(1, len(input_ids)):
         token_id = input_ids[i].item()
+        
+        # Stop at special tokens
+        if token_id == sep_token_id or token_id == pad_token_id:
+            break
+        
         char = tokenizer.decode([token_id])
         
         result.append(char)
@@ -141,7 +127,7 @@ def reconstruct_text_from_predictions(
         result.extend(diacritics)
     
     text = ''.join(result)
-    text = unicodedata.normalize('NFC', text)
+    text = normalize(text)  # Apply same normalization as training data
     return text
 
 
@@ -188,6 +174,9 @@ def evaluate(
     total_cer = 0.0
     num_samples = 0
     
+    # Flag to print first sample comparison
+    printed_first_sample = False
+    
     with torch.no_grad():
         for batch in tqdm(dataloader, desc=desc, leave=False):
             # Move batch to device
@@ -198,7 +187,7 @@ def evaluate(
             sin_labels = batch['sin_labels'].to(device)
             stress_labels = batch['stress_labels'].to(device)
             
-            # Forward pass
+            # Forward pass (without masking for loss calculation)
             outputs = model(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
@@ -206,7 +195,7 @@ def evaluate(
                 dagesh_labels=dagesh_labels,
                 sin_labels=sin_labels,
                 stress_labels=stress_labels,
-                tokenizer=tokenizer
+                tokenizer=None  # Don't apply masking during loss calculation
             )
             
             # Accumulate losses
@@ -255,6 +244,17 @@ def evaluate(
                 total_wer += calculate_wer(predicted_text, target_text)
                 total_cer += calculate_cer(predicted_text, target_text)
                 num_samples += 1
+                
+                # Print first sample comparison for debugging
+                if not printed_first_sample:
+                    print("\n" + "="*80)
+                    print("SAMPLE COMPARISON (First evaluation sample):")
+                    print("="*80)
+                    print(f"Original:  {target_text}")
+                    print(f"Predicted: {predicted_text}")
+                    print(f"Match: {target_text == predicted_text}")
+                    print("="*80 + "\n")
+                    printed_first_sample = True
     
     # Calculate averages
     num_batches = len(dataloader)
