@@ -235,3 +235,19 @@ def load_model(checkpoint_path: str, device: str = 'cpu') -> Tuple[HebrewNikudMo
     
     return model, tokenizer
 
+
+def count_parameters(model: nn.Module) -> Tuple[int, int]:
+    """
+    Count total and trainable parameters in a model.
+    
+    Args:
+        model: PyTorch model
+        
+    Returns:
+        Tuple of (total_params, trainable_params)
+    """
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return total_params, trainable_params
+
+

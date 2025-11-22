@@ -1,0 +1,305 @@
+"""
+Evaluation module for Hebrew Nikud model.
+
+Calculates metrics including WER (Word Error Rate), CER (Character Error Rate),
+and per-task accuracies.
+"""
+
+import torch
+from torch.utils.data import DataLoader
+from typing import Dict
+from tqdm import tqdm
+import unicodedata
+
+
+def calculate_cer(predicted_text: str, target_text: str) -> float:
+    """
+    Calculate Character Error Rate between predicted and target text.
+    
+    Uses Levenshtein distance at character level.
+    
+    Args:
+        predicted_text: Predicted text with nikud
+        target_text: Ground truth text with nikud
+        
+    Returns:
+        CER as a float (0.0 = perfect, 1.0 = completely wrong)
+    """
+    # Normalize both texts
+    predicted_text = unicodedata.normalize('NFD', predicted_text)
+    target_text = unicodedata.normalize('NFD', target_text)
+    
+    # Calculate Levenshtein distance
+    if len(target_text) == 0:
+        return 0.0 if len(predicted_text) == 0 else 1.0
+    
+    distance = levenshtein_distance(predicted_text, target_text)
+    return distance / len(target_text)
+
+
+def calculate_wer(predicted_text: str, target_text: str) -> float:
+    """
+    Calculate Word Error Rate between predicted and target text.
+    
+    Uses Levenshtein distance at word level.
+    
+    Args:
+        predicted_text: Predicted text with nikud
+        target_text: Ground truth text with nikud
+        
+    Returns:
+        WER as a float (0.0 = perfect, 1.0 = completely wrong)
+    """
+    # Split into words
+    predicted_words = predicted_text.split()
+    target_words = target_text.split()
+    
+    if len(target_words) == 0:
+        return 0.0 if len(predicted_words) == 0 else 1.0
+    
+    distance = levenshtein_distance(predicted_words, target_words)
+    return distance / len(target_words)
+
+
+def levenshtein_distance(seq1, seq2):
+    """
+    Calculate Levenshtein distance between two sequences.
+    
+    Works with both strings and lists.
+    """
+    if len(seq1) < len(seq2):
+        return levenshtein_distance(seq2, seq1)
+    
+    if len(seq2) == 0:
+        return len(seq1)
+    
+    previous_row = range(len(seq2) + 1)
+    for i, c1 in enumerate(seq1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(seq2):
+            # Cost of insertions, deletions, or substitutions
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    
+    return previous_row[-1]
+
+
+def reconstruct_text_from_predictions(
+    input_ids: torch.Tensor,
+    vowel_preds: torch.Tensor,
+    dagesh_preds: torch.Tensor,
+    sin_preds: torch.Tensor,
+    stress_preds: torch.Tensor,
+    tokenizer
+) -> str:
+    """
+    Reconstruct text with nikud from model predictions.
+    
+    This is a simplified version used for evaluation.
+    """
+    from dataset import ID_TO_VOWEL
+    from constants import DAGESH, S_SIN, STRESS_HATAMA, CAN_HAVE_DAGESH, CAN_HAVE_SIN, LETTERS
+    
+    result = []
+    
+    # Skip [CLS] and [SEP] tokens
+    for i in range(1, len(input_ids) - 1):
+        token_id = input_ids[i].item()
+        char = tokenizer.decode([token_id])
+        
+        result.append(char)
+        
+        # Only add nikud marks for Hebrew letters
+        if char not in LETTERS:
+            continue
+        
+        diacritics = []
+        
+        # Add vowel
+        vowel_id = vowel_preds[i].item()
+        if vowel_id > 0:
+            vowel_char = ID_TO_VOWEL.get(vowel_id)
+            if vowel_char:
+                diacritics.append(vowel_char)
+        
+        # Add dagesh
+        if dagesh_preds[i].item() == 1 and char in CAN_HAVE_DAGESH:
+            diacritics.append(DAGESH)
+        
+        # Add sin
+        if sin_preds[i].item() == 1 and char in CAN_HAVE_SIN:
+            diacritics.append(S_SIN)
+        
+        # Add stress
+        if stress_preds[i].item() == 1:
+            diacritics.append(STRESS_HATAMA)
+        
+        diacritics.sort()
+        result.extend(diacritics)
+    
+    text = ''.join(result)
+    text = unicodedata.normalize('NFC', text)
+    return text
+
+
+def evaluate(
+    model,
+    dataloader: DataLoader,
+    device: str,
+    tokenizer,
+    desc: str = "Evaluating"
+) -> Dict[str, float]:
+    """
+    Evaluate model on a dataset.
+    
+    Args:
+        model: HebrewNikudModel instance
+        dataloader: DataLoader with evaluation data
+        device: Device to run evaluation on
+        tokenizer: Tokenizer for reconstruction
+        desc: Description for progress bar
+        
+    Returns:
+        Dictionary with metrics: loss, wer, cer, and per-task accuracies
+    """
+    model.eval()
+    
+    total_loss = 0.0
+    total_vowel_loss = 0.0
+    total_dagesh_loss = 0.0
+    total_sin_loss = 0.0
+    total_stress_loss = 0.0
+    
+    # Accuracy tracking
+    vowel_correct = 0
+    vowel_total = 0
+    dagesh_correct = 0
+    dagesh_total = 0
+    sin_correct = 0
+    sin_total = 0
+    stress_correct = 0
+    stress_total = 0
+    
+    # WER/CER tracking
+    total_wer = 0.0
+    total_cer = 0.0
+    num_samples = 0
+    
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc=desc, leave=False):
+            # Move batch to device
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            vowel_labels = batch['vowel_labels'].to(device)
+            dagesh_labels = batch['dagesh_labels'].to(device)
+            sin_labels = batch['sin_labels'].to(device)
+            stress_labels = batch['stress_labels'].to(device)
+            
+            # Forward pass
+            outputs = model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                vowel_labels=vowel_labels,
+                dagesh_labels=dagesh_labels,
+                sin_labels=sin_labels,
+                stress_labels=stress_labels,
+                tokenizer=tokenizer
+            )
+            
+            # Accumulate losses
+            total_loss += outputs['loss'].item()
+            total_vowel_loss += outputs['vowel_loss'].item()
+            total_dagesh_loss += outputs['dagesh_loss'].item()
+            total_sin_loss += outputs['sin_loss'].item()
+            total_stress_loss += outputs['stress_loss'].item()
+            
+            # Get predictions
+            vowel_preds = torch.argmax(outputs['vowel_logits'], dim=-1)
+            dagesh_preds = torch.argmax(outputs['dagesh_logits'], dim=-1)
+            sin_preds = torch.argmax(outputs['sin_logits'], dim=-1)
+            stress_preds = torch.argmax(outputs['stress_logits'], dim=-1)
+            
+            # Calculate accuracies (only on non-ignored positions)
+            vowel_mask = vowel_labels != -100
+            vowel_correct += (vowel_preds[vowel_mask] == vowel_labels[vowel_mask]).sum().item()
+            vowel_total += vowel_mask.sum().item()
+            
+            dagesh_mask = dagesh_labels != -100
+            dagesh_correct += (dagesh_preds[dagesh_mask] == dagesh_labels[dagesh_mask]).sum().item()
+            dagesh_total += dagesh_mask.sum().item()
+            
+            sin_mask = sin_labels != -100
+            sin_correct += (sin_preds[sin_mask] == sin_labels[sin_mask]).sum().item()
+            sin_total += sin_mask.sum().item()
+            
+            stress_mask = stress_labels != -100
+            stress_correct += (stress_preds[stress_mask] == stress_labels[stress_mask]).sum().item()
+            stress_total += stress_mask.sum().item()
+            
+            # Calculate WER/CER for each sample in batch
+            for i in range(input_ids.shape[0]):
+                predicted_text = reconstruct_text_from_predictions(
+                    input_ids[i],
+                    vowel_preds[i],
+                    dagesh_preds[i],
+                    sin_preds[i],
+                    stress_preds[i],
+                    tokenizer
+                )
+                
+                target_text = batch['original_text'][i]
+                
+                total_wer += calculate_wer(predicted_text, target_text)
+                total_cer += calculate_cer(predicted_text, target_text)
+                num_samples += 1
+    
+    # Calculate averages
+    num_batches = len(dataloader)
+    
+    # Handle empty dataloader
+    if num_batches == 0:
+        return {
+            'loss': 0.0,
+            'vowel_loss': 0.0,
+            'dagesh_loss': 0.0,
+            'sin_loss': 0.0,
+            'stress_loss': 0.0,
+            'vowel_acc': 0.0,
+            'dagesh_acc': 0.0,
+            'sin_acc': 0.0,
+            'stress_acc': 0.0,
+            'wer': 0.0,
+            'cer': 0.0,
+        }
+    
+    avg_loss = total_loss / num_batches
+    avg_vowel_loss = total_vowel_loss / num_batches
+    avg_dagesh_loss = total_dagesh_loss / num_batches
+    avg_sin_loss = total_sin_loss / num_batches
+    avg_stress_loss = total_stress_loss / num_batches
+    
+    vowel_acc = vowel_correct / vowel_total if vowel_total > 0 else 0.0
+    dagesh_acc = dagesh_correct / dagesh_total if dagesh_total > 0 else 0.0
+    sin_acc = sin_correct / sin_total if sin_total > 0 else 0.0
+    stress_acc = stress_correct / stress_total if stress_total > 0 else 0.0
+    
+    avg_wer = total_wer / num_samples if num_samples > 0 else 0.0
+    avg_cer = total_cer / num_samples if num_samples > 0 else 0.0
+    
+    return {
+        'loss': avg_loss,
+        'vowel_loss': avg_vowel_loss,
+        'dagesh_loss': avg_dagesh_loss,
+        'sin_loss': avg_sin_loss,
+        'stress_loss': avg_stress_loss,
+        'vowel_acc': vowel_acc,
+        'dagesh_acc': dagesh_acc,
+        'sin_acc': sin_acc,
+        'stress_acc': stress_acc,
+        'wer': avg_wer,
+        'cer': avg_cer,
+    }
+

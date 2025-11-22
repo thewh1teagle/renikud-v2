@@ -181,3 +181,104 @@ class NikudDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
+
+def load_dataset_from_file(file_path: str) -> List[str]:
+    """
+    Load Hebrew texts from a file.
+    
+    Args:
+        file_path: Path to text file (one text per line)
+        
+    Returns:
+        List of texts with nikud marks
+    """
+    texts = []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line:  # Skip empty lines
+                texts.append(line)
+    return texts
+
+
+def split_dataset(texts: List[str], eval_ratio: float, seed: int = 42) -> tuple:
+    """
+    Split dataset into train and eval sets.
+    
+    Args:
+        texts: List of texts with nikud marks
+        eval_ratio: Ratio of data to use for evaluation (e.g., 0.2 for 20%)
+        seed: Random seed for reproducibility
+        
+    Returns:
+        Tuple of (train_texts, eval_texts)
+    """
+    import random
+    
+    # Set seed for reproducibility
+    random.seed(seed)
+    
+    # Shuffle texts
+    shuffled_texts = texts.copy()
+    random.shuffle(shuffled_texts)
+    
+    # Calculate split point
+    eval_size = int(len(shuffled_texts) * eval_ratio)
+    
+    # Split
+    eval_texts = shuffled_texts[:eval_size]
+    train_texts = shuffled_texts[eval_size:]
+    
+    return train_texts, eval_texts
+
+
+def collate_fn(batch: List[Dict]) -> Dict[str, torch.Tensor]:
+    """
+    Collate function for DataLoader to handle variable-length sequences.
+    
+    Args:
+        batch: List of data dictionaries from NikudDataset
+        
+    Returns:
+        Dictionary with batched and padded tensors
+    """
+    # Find max length in batch
+    max_len = max(item['input_ids'].shape[0] for item in batch)
+    
+    # Initialize batched tensors
+    batch_size = len(batch)
+    input_ids = torch.zeros(batch_size, max_len, dtype=torch.long)
+    attention_mask = torch.zeros(batch_size, max_len, dtype=torch.long)
+    vowel_labels = torch.full((batch_size, max_len), -100, dtype=torch.long)
+    dagesh_labels = torch.full((batch_size, max_len), -100, dtype=torch.long)
+    sin_labels = torch.full((batch_size, max_len), -100, dtype=torch.long)
+    stress_labels = torch.full((batch_size, max_len), -100, dtype=torch.long)
+    
+    plain_texts = []
+    original_texts = []
+    
+    # Fill in the batch
+    for i, item in enumerate(batch):
+        seq_len = item['input_ids'].shape[0]
+        
+        input_ids[i, :seq_len] = item['input_ids']
+        attention_mask[i, :seq_len] = item['attention_mask']
+        vowel_labels[i, :seq_len] = item['vowel_labels']
+        dagesh_labels[i, :seq_len] = item['dagesh_labels']
+        sin_labels[i, :seq_len] = item['sin_labels']
+        stress_labels[i, :seq_len] = item['stress_labels']
+        
+        plain_texts.append(item['plain_text'])
+        original_texts.append(item['original_text'])
+    
+    return {
+        'input_ids': input_ids,
+        'attention_mask': attention_mask,
+        'vowel_labels': vowel_labels,
+        'dagesh_labels': dagesh_labels,
+        'sin_labels': sin_labels,
+        'stress_labels': stress_labels,
+        'plain_text': plain_texts,
+        'original_text': original_texts,
+    }
+
