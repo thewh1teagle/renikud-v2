@@ -30,7 +30,7 @@ def reconstruct_text_from_predictions(
     """
     # Import here to avoid circular dependencies
     from dataset import ID_TO_VOWEL
-    from constants import DAGESH, S_SIN, STRESS_HATAMA, CAN_HAVE_DAGESH, CAN_HAVE_SIN, LETTERS
+    from constants import DAGESH, S_SIN, STRESS_HATAMA, CAN_HAVE_DAGESH, CAN_HAVE_SIN, LETTERS, CAN_NOT_HAVE_NIKUD
     from normalize import normalize
     result = []
     
@@ -51,6 +51,10 @@ def reconstruct_text_from_predictions(
         
         # Only add nikud marks for Hebrew letters
         if char not in LETTERS:
+            continue
+        
+        # Skip nikud for final letters (they can't have nikud)
+        if char in CAN_NOT_HAVE_NIKUD:
             continue
         
         diacritics = []

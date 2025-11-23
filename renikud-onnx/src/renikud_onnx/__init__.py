@@ -2,6 +2,7 @@
 renikud-onnx: Fast ONNX inference for Hebrew Nikud prediction.
 """
 
+import re
 import onnxruntime
 import numpy as np
 from pathlib import Path
@@ -38,6 +39,9 @@ class Renikud:
         Returns:
             Text with predicted nikud marks
         """
+        # Remove diacritics from the text
+        text = re.sub(r'[\u0590-\u05CF]', '', text)
+        
         # Tokenize
         encoding = self.tokenizer.encode(text)
         input_ids = np.array([encoding.ids], dtype=np.int64)

@@ -11,7 +11,11 @@ DAGESH = '\u05bc' # u/dagesh mark
 S_SIN = '\u05c2' # s (sin)
 STRESS_HATAMA = '\u05ab' # stress mark
 
+FINAL_LETTERS = "ךםןףץ"
+LETTERS = 'אבגדהוזחטיכלמנסעפצקרשת' + FINAL_LETTERS
+
+# Rules
 CAN_HAVE_DAGESH = 'בכפו'
 CAN_HAVE_SIN = 'ש'
-LETTERS = 'אבגדהוזחטיכלמנסעפצקרשת' + 'םןףץ'
+CAN_NOT_HAVE_NIKUD = FINAL_LETTERS
 

@@ -15,9 +15,11 @@ S_SIN = '\u05c2'
 STRESS_HATAMA = '\u05ab'
 
 # Character sets
+FINAL_LETTERS = 'ךםןףץ'
 CAN_HAVE_DAGESH = 'בכפו'
 CAN_HAVE_SIN = 'ש'
-LETTERS = 'אבגדהוזחטיכלמנסעפצקרשת' + 'םןףץ'
+CAN_NOT_HAVE_NIKUD = FINAL_LETTERS
+LETTERS = 'אבגדהוזחטיכלמנסעפצקרשת' + FINAL_LETTERS
 
 # Vowel mappings
 ID_TO_VOWEL = {

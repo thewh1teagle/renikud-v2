@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .constants import (
     ID_TO_VOWEL, DAGESH, S_SIN, STRESS_HATAMA,
-    CAN_HAVE_DAGESH, CAN_HAVE_SIN, LETTERS
+    CAN_HAVE_DAGESH, CAN_HAVE_SIN, CAN_NOT_HAVE_NIKUD, LETTERS
 )
 
 
@@ -53,6 +53,10 @@ def reconstruct_text(
         
         # Only add nikud marks for Hebrew letters
         if char not in LETTERS:
+            continue
+        
+        # Skip nikud for final letters (they can't have nikud)
+        if char in CAN_NOT_HAVE_NIKUD:
             continue
         
         diacritics = []

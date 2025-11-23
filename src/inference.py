@@ -9,6 +9,7 @@ from pathlib import Path
 from transformers import AutoTokenizer
 from typing import List
 from safetensors.torch import load_file
+import re
 
 from model import HebrewNikudModel
 from decode import reconstruct_text_from_predictions
@@ -65,6 +66,9 @@ class NikudPredictor:
         # Don't filter! Keep the original text as-is
         if not text.strip():
             return text
+        
+        # Remove diacritics from the text
+        text = re.sub(r'[\u0590-\u05CF]', '', text)
         
         # Tokenize the full text (tokenizer will handle all characters)
         encoding = self.tokenizer(
