@@ -30,3 +30,12 @@ uv run python src/inference.py --checkpoint checkpoints/best_model.pt --text "ה
 uv run python src/inference.py --checkpoint checkpoints/best_model.pt --file input.txt
 ```
 
+# Upload model to Hugging Face
+
+```coonsole
+uv pip install huggingface_hub
+git config --global credential.helper store # Allow clone private repo from HF
+# Get token from https://huggingface.co/settings/tokens
+uv run hf auth login --token "token" --add-to-git-credential #
+uv run hf upload --repo-type model renikud-v2 ./checkpoints/checkpoint-10000
+```
