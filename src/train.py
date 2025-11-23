@@ -1,16 +1,20 @@
 """
 Training script for Hebrew Nikud BERT model with HuggingFace Trainer.
 
-uv run python src/train.py \
-    --train-file data/train_100k.txt \
-    --eval-max-lines 1000 \
-    --batch-size 8 \
-    --max-epochs 999999 \
-    --lr 1e-4 \
-    --checkpoint-dir checkpoints/run_100k \
-    --wandb-mode online \
-    --wandb-project renikud-v2 \
-    --wandb-run-name run_100k
+Train the model on Hebrew text with nikud:
+    uv run python src/train.py \
+        --train-file data/train_100k.txt \
+        --eval-max-lines 1000 \
+        --batch-size 8 \
+        --max-epochs 999999 \
+        --lr 1e-4 \
+        --checkpoint-dir checkpoints/run_100k \
+        --wandb-mode online \
+        --wandb-project renikud-v2 \
+        --wandb-run-name run_100k
+
+Resume training from checkpoint:
+    uv run python src/train.py --train-file data/train_100k.txt --resume checkpoints/run_100k/checkpoint-6000
 """
 
 import torch
@@ -96,8 +100,14 @@ def main():
         processing_class=tokenizer,
     )
     
-    # Train
-    trainer.train()
+    # Train (with optional resume)
+    resume_checkpoint = None
+    if config.resume == "auto":
+        resume_checkpoint = True  # Auto-detect latest checkpoint
+    elif config.resume:
+        resume_checkpoint = config.resume  # Use specified checkpoint
+    
+    trainer.train(resume_from_checkpoint=resume_checkpoint)
     
     # Save final model
     final_path = Path(config.checkpoint_dir) / 'final_model.pt'

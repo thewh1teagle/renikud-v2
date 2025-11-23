@@ -43,6 +43,8 @@ def get_args():
                         help='Directory to save checkpoints')
     parser.add_argument('--save-best', action='store_true', default=True,
                         help='Save best model based on validation metrics')
+    parser.add_argument('--resume', type=str, default=None,
+                        help='Resume from checkpoint (path or "auto" for latest)')
     
     # Device
     parser.add_argument('--device', type=str, default=None,
@@ -69,6 +71,7 @@ def get_args():
     args.batch_size = args.batch_size
     args.checkpoint_dir = args.checkpoint_dir
     args.save_best = args.save_best
+    args.resume = args.resume
     args.wandb_mode = args.wandb_mode
     args.wandb_project = args.wandb_project
     args.wandb_run_name = args.wandb_run_name
