@@ -78,10 +78,9 @@ def reconstruct_text_from_predictions(
         diacritics.sort()
         result.extend(diacritics)
     
-    # Combine and normalize
+    # Combine and normalize (keep as NFD to match training data)
     text = ''.join(result)
-    text = normalize(text)  # Apply same normalization as training data
-    text = unicodedata.normalize('NFC', text)
+    text = normalize(text)  # Apply same normalization as training data (outputs NFD)
     
     return text
 

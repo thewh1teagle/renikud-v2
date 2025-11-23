@@ -9,6 +9,10 @@ This module handles:
 from typing import List
 import torch
 from tqdm import tqdm
+import hashlib
+import pickle
+import os
+from pathlib import Path
 from encode import extract_nikud_labels
 from constants import A_PATAH, E_TSERE, I_HIRIK, O_HOLAM, U_QUBUT
 
@@ -31,6 +35,38 @@ VOWEL_TO_ID = {
 }
 
 ID_TO_VOWEL = {v: k for k, v in VOWEL_TO_ID.items()}
+
+
+def _load_or_process_dataset(texts: List[str], tokenizer, cache_dir: str) -> List[dict]:
+    """Load dataset from cache or process and cache it."""
+    Path(cache_dir).mkdir(exist_ok=True)
+    
+    # Generate cache key
+    data_str = "".join(texts) + str(tokenizer.vocab_size)
+    data_hash = hashlib.md5(data_str.encode()).hexdigest()
+    cache_path = os.path.join(cache_dir, f"dataset_{data_hash}.pkl")
+    
+    # Try loading from cache
+    if os.path.exists(cache_path):
+        print(f"Loading cached dataset from {cache_path}...")
+        with open(cache_path, 'rb') as f:
+            data = pickle.load(f)
+        print(f"Loaded {len(data)} cached samples")
+        return data
+    
+    # Process and cache
+    print(f"Processing {len(texts)} texts...")
+    data = [
+        prepare_training_data(text, tokenizer) 
+        for text in tqdm(texts, desc="Preparing dataset", unit="texts")
+    ]
+    
+    print(f"Saving dataset to cache: {cache_path}")
+    with open(cache_path, 'wb') as f:
+        pickle.dump(data, f)
+    print(f"Cached {len(data)} samples")
+    
+    return data
 
 
 def prepare_training_data(nikud_text: str, tokenizer) -> dict:
@@ -91,17 +127,14 @@ def prepare_training_data(nikud_text: str, tokenizer) -> dict:
 class NikudDataset(torch.utils.data.Dataset):
     """PyTorch Dataset for Hebrew nikud prediction."""
     
-    def __init__(self, texts: List[str], tokenizer):
+    def __init__(self, texts: List[str], tokenizer, cache_dir: str = ".dataset_cache"):
         """
         Args:
             texts: List of Hebrew texts with nikud marks
             tokenizer: HuggingFace tokenizer
+            cache_dir: Directory to cache processed datasets
         """
-        print(f"Processing {len(texts)} texts...")
-        self.data = [
-            prepare_training_data(text, tokenizer) 
-            for text in tqdm(texts, desc="Preparing dataset", unit="texts")
-        ]
+        self.data = _load_or_process_dataset(texts, tokenizer, cache_dir)
     
     def __len__(self):
         return len(self.data)

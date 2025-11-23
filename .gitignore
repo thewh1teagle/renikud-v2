@@ -19,3 +19,6 @@ wandb/
 data/
 !data/train_example.txt
 *.onnx
+
+# Dataset cache
+.dataset_cache/
