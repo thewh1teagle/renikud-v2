@@ -11,10 +11,9 @@ from decode import reconstruct_text_from_predictions
 class NikudTrainer(Trainer):
     """Custom Trainer for Hebrew Nikud model with WER/CER metrics."""
     
-    def __init__(self, *args, tokenizer=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.processing_class = tokenizer
-        self.tokenizer = tokenizer
+    def __init__(self, *args, processing_class=None, **kwargs):
+        super().__init__(*args, processing_class=processing_class, **kwargs)
+        self.processing_class = processing_class
     
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         """Compute loss for training."""

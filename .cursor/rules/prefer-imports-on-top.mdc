@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+Whenever you're importing modules, prefer to import them on the top of the file if possible.

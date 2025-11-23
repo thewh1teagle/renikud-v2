@@ -80,7 +80,7 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         data_collator=collate_fn,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
     )
     
     # Train
