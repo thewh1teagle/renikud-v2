@@ -17,5 +17,5 @@ LETTERS = 'אבגדהוזחטיכלמנסעפצקרשת' + FINAL_LETTERS
 # Rules
 CAN_HAVE_DAGESH = 'בכפו'
 CAN_HAVE_SIN = 'ש'
-CAN_NOT_HAVE_NIKUD = FINAL_LETTERS
+CAN_NOT_HAVE_NIKUD = "םןףץ"
 
