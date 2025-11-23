@@ -49,7 +49,7 @@ def get_args():
                         help='Device to train on (cpu/cuda/mps, None for auto)')
     
     # Wandb arguments
-    parser.add_argument('--wandb-mode', type=str, default='disabled',
+    parser.add_argument('--wandb-mode', type=str, default='online',
                         choices=['online', 'offline', 'disabled'],
                         help='Wandb logging mode')
     parser.add_argument('--wandb-project', type=str, default='hebrew-nikud',
