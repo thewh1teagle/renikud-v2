@@ -137,14 +137,20 @@ def main():
     print("\n" + "=" * 80)
     print("Predictions:")
     print("=" * 80)
-    
-    for i, text in enumerate(texts):
-        nikud_text = predictor.predict(text)
-        print(f"\nInput:  {text}")
-        print(f"Output: {nikud_text}")
-        
-        if i < len(texts) - 1:
-            print("-" * 80)
+
+    if args.file:
+        # Print clean output to stdout
+        for text in texts:
+            nikud_text = predictor.predict(text)
+            print(nikud_text)
+    else:
+        for i, text in enumerate(texts):
+            nikud_text = predictor.predict(text)
+            print(f"\nInput:  {text}")
+            print(f"Output: {nikud_text}")
+            
+            if i < len(texts) - 1:
+                print("-" * 80)
 
 
 if __name__ == '__main__':
