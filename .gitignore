@@ -18,3 +18,4 @@ wandb/
 *.pt
 data/
 !data/train_example.txt
+*.onnx

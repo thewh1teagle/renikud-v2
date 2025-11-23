@@ -5,8 +5,10 @@ This module handles loading the trained model and generating nikud predictions.
 """
 
 import torch
+from pathlib import Path
 from transformers import AutoTokenizer
 from typing import List
+from safetensors.torch import load_file
 
 from model import HebrewNikudModel
 from decode import reconstruct_text_from_predictions
@@ -34,7 +36,17 @@ class NikudPredictor:
         
         # Load model
         self.model = HebrewNikudModel()
-        self.model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+        
+        # Load checkpoint weights
+        checkpoint_path = Path(checkpoint_path)
+        if checkpoint_path.is_dir():
+            checkpoint_path = checkpoint_path / 'model.safetensors'
+        
+        if not checkpoint_path.exists():
+            raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+        
+        self.model.load_state_dict(load_file(checkpoint_path, device=str(device)))
+        
         self.model.to(device)
         self.model.eval()
         
@@ -102,7 +114,7 @@ def main():
     parser = argparse.ArgumentParser(description='Predict nikud for Hebrew text')
     parser.add_argument('--checkpoint', type=str, required=True,
                        help='Path to model checkpoint')
-    parser.add_argument('--text', type=str, default="את רוצה שאני יביא לך את זה? ואתה גם רוצה?",
+    parser.add_argument('--text', type=str, default="הוא רצה את זה גם, אבל היא רצה מהר והקדימה אותו!",
                        help='Text to add nikud to')
     parser.add_argument('--file', type=str, default=None,
                        help='File containing text to add nikud to')
