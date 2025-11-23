@@ -51,8 +51,8 @@ def main():
     print(f"Loaded {len(texts)} texts ({len(train_texts)} train, {len(eval_texts)} eval)")
     
     # Create datasets
-    train_dataset = NikudDataset(train_texts, tokenizer)
-    eval_dataset = NikudDataset(eval_texts, tokenizer)
+    train_dataset = NikudDataset(train_texts, tokenizer, use_cache=config.cache_dataset)
+    eval_dataset = NikudDataset(eval_texts, tokenizer, use_cache=config.cache_dataset)
     
     # Initialize model
     print("\nInitializing model...")

@@ -37,8 +37,17 @@ VOWEL_TO_ID = {
 ID_TO_VOWEL = {v: k for k, v in VOWEL_TO_ID.items()}
 
 
-def _load_or_process_dataset(texts: List[str], tokenizer, cache_dir: str) -> List[dict]:
+def _load_or_process_dataset(texts: List[str], tokenizer, cache_dir: str, use_cache: bool) -> List[dict]:
     """Load dataset from cache or process and cache it."""
+    # If caching disabled, just process
+    if not use_cache:
+        print(f"Processing {len(texts)} texts (caching disabled)...")
+        return [
+            prepare_training_data(text, tokenizer) 
+            for text in tqdm(texts, desc="Preparing dataset", unit="texts")
+        ]
+    
+    # Caching enabled
     Path(cache_dir).mkdir(exist_ok=True)
     
     # Generate cache key
@@ -127,14 +136,15 @@ def prepare_training_data(nikud_text: str, tokenizer) -> dict:
 class NikudDataset(torch.utils.data.Dataset):
     """PyTorch Dataset for Hebrew nikud prediction."""
     
-    def __init__(self, texts: List[str], tokenizer, cache_dir: str = ".dataset_cache"):
+    def __init__(self, texts: List[str], tokenizer, cache_dir: str = ".dataset_cache", use_cache: bool = True):
         """
         Args:
             texts: List of Hebrew texts with nikud marks
             tokenizer: HuggingFace tokenizer
             cache_dir: Directory to cache processed datasets
+            use_cache: Whether to cache the processed dataset
         """
-        self.data = _load_or_process_dataset(texts, tokenizer, cache_dir)
+        self.data = _load_or_process_dataset(texts, tokenizer, cache_dir, use_cache)
     
     def __len__(self):
         return len(self.data)

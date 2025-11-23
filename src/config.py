@@ -21,6 +21,8 @@ def get_args():
                         help='Maximum number of lines to use for evaluation')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed for reproducibility')
+    parser.add_argument('--cache-dataset', action='store_true', default=False,
+                        help='Cache processed dataset for faster loading')
     
     # Training arguments
     parser.add_argument('--batch-size', type=int, default=8,
@@ -72,6 +74,7 @@ def get_args():
     args.checkpoint_dir = args.checkpoint_dir
     args.save_best = args.save_best
     args.resume = args.resume
+    args.cache_dataset = args.cache_dataset
     args.wandb_mode = args.wandb_mode
     args.wandb_project = args.wandb_project
     args.wandb_run_name = args.wandb_run_name
