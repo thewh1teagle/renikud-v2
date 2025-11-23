@@ -16,3 +16,5 @@ wandb/
 *.7z
 *.txt
 *.pt
+data/
+!data/train_example.txt

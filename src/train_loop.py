@@ -1,5 +1,5 @@
 """
-Training loop for Hebrew Nikud BERT model.
+Training loop for Hebrew Nikud BERT model using HuggingFace Trainer.
 
 Orchestrates the full training pipeline including:
 - Data loading and splitting
@@ -10,23 +10,11 @@ Orchestrates the full training pipeline including:
 """
 
 import torch
-from torch.utils.data import DataLoader
-from transformers import AutoTokenizer
-import wandb
-from pathlib import Path
-from tqdm import tqdm
+from transformers import Trainer
 import random
 import numpy as np
 
-from config import Config
-from model import HebrewNikudModel, count_parameters
-from dataset import (
-    NikudDataset,
-    load_dataset_from_file,
-    split_dataset,
-    collate_fn
-)
-from evaluate import evaluate
+from evaluate import calculate_wer, calculate_cer, reconstruct_text_from_predictions
 
 
 def set_seed(seed: int):
@@ -38,278 +26,82 @@ def set_seed(seed: int):
         torch.cuda.manual_seed_all(seed)
 
 
-def train_epoch(
-    model,
-    dataloader: DataLoader,
-    optimizer,
-    device: str,
-    tokenizer,
-    epoch: int,
-    total_epochs: int,
-    max_grad_norm: float = 1.0
-) -> dict:
-    """
-    Train for one epoch.
+class NikudTrainer(Trainer):
+    """Custom Trainer for Hebrew Nikud model with WER/CER metrics."""
     
-    Args:
-        model: HebrewNikudModel instance
-        dataloader: Training DataLoader
-        optimizer: Optimizer
-        device: Device to train on
-        tokenizer: Tokenizer for the model
-        epoch: Current epoch number
-        total_epochs: Total number of epochs
+    def __init__(self, *args, tokenizer=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.processing_class = tokenizer  # Store tokenizer as processing_class
+        self.tokenizer = tokenizer  # Keep for backward compatibility
+    
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        """Compute loss for training."""
+        # Extract all labels
+        vowel_labels = inputs.pop("vowel_labels")
+        dagesh_labels = inputs.pop("dagesh_labels")
+        sin_labels = inputs.pop("sin_labels")
+        stress_labels = inputs.pop("stress_labels")
         
-    Returns:
-        Dictionary with average losses
-    """
-    model.train()
-    
-    total_loss = 0.0
-    total_vowel_loss = 0.0
-    total_dagesh_loss = 0.0
-    total_sin_loss = 0.0
-    total_stress_loss = 0.0
-    
-    # Progress bar
-    pbar = tqdm(
-        dataloader,
-        desc=f"Epoch {epoch}/{total_epochs}",
-        leave=True
-    )
-    
-    for batch in pbar:
-        # Move batch to device
-        input_ids = batch['input_ids'].to(device)
-        attention_mask = batch['attention_mask'].to(device)
-        vowel_labels = batch['vowel_labels'].to(device)
-        dagesh_labels = batch['dagesh_labels'].to(device)
-        sin_labels = batch['sin_labels'].to(device)
-        stress_labels = batch['stress_labels'].to(device)
+        # Remove non-tensor fields
+        inputs.pop("plain_text", None)
+        inputs.pop("original_text", None)
         
-        # Forward pass
         outputs = model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
+            **inputs,
             vowel_labels=vowel_labels,
             dagesh_labels=dagesh_labels,
             sin_labels=sin_labels,
-            stress_labels=stress_labels,
-            tokenizer=tokenizer
+            stress_labels=stress_labels
+        )
+        loss = outputs["loss"]
+        
+        return (loss, outputs) if return_outputs else loss
+    
+    def evaluation_loop(self, dataloader, description, prediction_loss_only=None, ignore_keys=None, metric_key_prefix="eval"):
+        """
+        Custom evaluation loop that includes WER/CER calculations.
+        """
+        # Call parent evaluation
+        output = super().evaluation_loop(
+            dataloader, description, prediction_loss_only, ignore_keys, metric_key_prefix
         )
         
-        loss = outputs['loss']
+        # Calculate WER/CER
+        model = self.model
+        model.eval()
         
-        # Backward pass
-        optimizer.zero_grad()
-        loss.backward()
+        total_wer = 0.0
+        total_cer = 0.0
+        num_samples = 0
         
-        # Gradient clipping to prevent explosion
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
+        with torch.no_grad():
+            for batch in dataloader:
+                input_ids = batch['input_ids'].to(self.args.device)
+                attention_mask = batch['attention_mask'].to(self.args.device)
+                
+                # Get predictions (returns dict with vowel, dagesh, sin, stress)
+                predictions = model.predict(input_ids, attention_mask)
+                
+                # Calculate WER/CER for each sample
+                for i in range(input_ids.shape[0]):
+                    predicted_text = reconstruct_text_from_predictions(
+                        input_ids[i],
+                        predictions['vowel'][i],
+                        predictions['dagesh'][i],
+                        predictions['sin'][i],
+                        predictions['stress'][i],
+                        self.processing_class
+                    )
+                    
+                    target_text = batch['original_text'][i]
+                    
+                    total_wer += calculate_wer(predicted_text, target_text)
+                    total_cer += calculate_cer(predicted_text, target_text)
+                    num_samples += 1
         
-        optimizer.step()
+        # Add WER/CER to metrics
+        if num_samples > 0:
+            output.metrics[f'{metric_key_prefix}_wer'] = total_wer / num_samples
+            output.metrics[f'{metric_key_prefix}_cer'] = total_cer / num_samples
         
-        # Accumulate losses
-        total_loss += loss.item()
-        total_vowel_loss += outputs['vowel_loss'].item()
-        total_dagesh_loss += outputs['dagesh_loss'].item()
-        total_sin_loss += outputs['sin_loss'].item()
-        total_stress_loss += outputs['stress_loss'].item()
-        
-        # Update progress bar
-        pbar.set_postfix({
-            'loss': f"{loss.item():.4f}",
-            'vowel': f"{outputs['vowel_loss'].item():.4f}",
-            'dagesh': f"{outputs['dagesh_loss'].item():.4f}",
-        })
-    
-    # Calculate averages
-    num_batches = len(dataloader)
-    return {
-        'train_loss': total_loss / num_batches,
-        'train_vowel_loss': total_vowel_loss / num_batches,
-        'train_dagesh_loss': total_dagesh_loss / num_batches,
-        'train_sin_loss': total_sin_loss / num_batches,
-        'train_stress_loss': total_stress_loss / num_batches,
-    }
-
-
-def main():
-    """Main training function."""
-    # Parse configuration
-    config = Config.from_args()
-    
-    print("=" * 80)
-    print("Hebrew Nikud Training")
-    print("=" * 80)
-    print(config)
-    print("=" * 80)
-    
-    # Set random seed
-    set_seed(config.seed)
-    print(f"\n✓ Random seed set to {config.seed}")
-    
-    # Set device
-    if config.device is None:
-        device = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
-    else:
-        device = config.device
-    print(f"✓ Using device: {device}")
-    
-    # Initialize wandb
-    if config.wandb_mode != "disabled":
-        wandb.init(
-            project=config.wandb_project,
-            name=config.wandb_run_name,
-            mode=config.wandb_mode,
-            config=vars(config)
-        )
-        print(f"✓ Wandb initialized (mode: {config.wandb_mode})")
-    else:
-        print(f"✓ Wandb disabled")
-    
-    # Load tokenizer
-    print("\n" + "=" * 80)
-    print("Loading tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained(config.model_name)
-    print("✓ Tokenizer loaded")
-    
-    # Load and split dataset
-    print("\n" + "=" * 80)
-    print(f"Loading dataset from {config.train_file}...")
-    texts = load_dataset_from_file(config.train_file)
-    print(f"✓ Loaded {len(texts)} texts")
-    
-    print(f"\nSplitting dataset (eval_max_lines={config.eval_max_lines})...")
-    train_texts, eval_texts = split_dataset(texts, config.eval_max_lines, config.seed)
-    print(f"✓ Train: {len(train_texts)} texts")
-    print(f"✓ Eval: {len(eval_texts)} texts")
-    
-    # Create datasets
-    print("\nCreating datasets...")
-    train_dataset = NikudDataset(train_texts, tokenizer)
-    eval_dataset = NikudDataset(eval_texts, tokenizer)
-    print("✓ Datasets created")
-    
-    # Create dataloaders
-    print(f"\nCreating dataloaders (batch_size={config.batch_size})...")
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=config.batch_size,
-        shuffle=True,
-        collate_fn=collate_fn
-    )
-    eval_loader = DataLoader(
-        eval_dataset,
-        batch_size=config.batch_size,
-        shuffle=False,
-        collate_fn=collate_fn
-    )
-    print("✓ Dataloaders created")
-    
-    # Initialize model
-    print("\n" + "=" * 80)
-    print("Initializing model...")
-    model = HebrewNikudModel(model_name=config.model_name, dropout=config.dropout)
-    model.to(device)
-    
-    # Count parameters
-    total_params, trainable_params = count_parameters(model)
-    print(f"✓ Model initialized")
-    print(f"  Total parameters: {total_params:,}")
-    print(f"  Trainable parameters: {trainable_params:,}")
-    print(f"  Model size: ~{total_params * 4 / (1024**2):.2f} MB")
-    
-    # Log to wandb
-    if config.wandb_mode != "disabled":
-        wandb.config.update({
-            'total_params': total_params,
-            'trainable_params': trainable_params
-        })
-    
-    # Setup optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
-    
-    # Create checkpoint directory
-    Path(config.checkpoint_dir).mkdir(parents=True, exist_ok=True)
-    
-    # Training loop
-    print("\n" + "=" * 80)
-    print(f"Starting training for {config.max_epochs} epochs")
-    print("=" * 80)
-    
-    best_eval_loss = float('inf')
-    best_wer = float('inf')
-    best_cer = float('inf')
-    
-    for epoch in range(1, config.max_epochs + 1):
-        # Train
-        train_metrics = train_epoch(
-            model, train_loader, optimizer, device, tokenizer,
-            epoch, config.max_epochs, config.max_grad_norm
-        )
-        
-        # Evaluate
-        eval_metrics = evaluate(
-            model, eval_loader, device, tokenizer,
-            desc=f"Evaluating Epoch {epoch}"
-        )
-        
-        # Add 'eval_' prefix to eval metrics
-        eval_metrics_prefixed = {f'eval_{k}': v for k, v in eval_metrics.items()}
-        
-        # Log to wandb
-        if config.wandb_mode != "disabled":
-            wandb.log({
-                **train_metrics,
-                **eval_metrics_prefixed,
-                'epoch': epoch,
-                'learning_rate': config.learning_rate
-            })
-        
-        # Print epoch summary
-        print(f"\nEpoch {epoch} Summary:")
-        print(f"  Train Loss: {train_metrics['train_loss']:.4f}")
-        print(f"  Eval Loss:  {eval_metrics['loss']:.4f}")
-        print(f"  Eval WER:   {eval_metrics['wer']:.4f}")
-        print(f"  Eval CER:   {eval_metrics['cer']:.4f}")
-        print(f"  Vowel Acc:  {eval_metrics['vowel_acc']:.4f}")
-        print(f"  Dagesh Acc: {eval_metrics['dagesh_acc']:.4f}")
-        print(f"  Sin Acc:    {eval_metrics['sin_acc']:.4f}")
-        print(f"  Stress Acc: {eval_metrics['stress_acc']:.4f}")
-        
-        # Save best model
-        if config.save_best and eval_metrics['loss'] < best_eval_loss:
-            best_eval_loss = eval_metrics['loss']
-            best_wer = eval_metrics['wer']
-            best_cer = eval_metrics['cer']
-            
-            checkpoint_path = Path(config.checkpoint_dir) / 'best_model.pt'
-            torch.save(model.state_dict(), checkpoint_path)
-            print(f"  ✓ Saved best model (loss: {best_eval_loss:.4f})")
-        
-        print("-" * 80)
-    
-    # Save final model
-    final_path = Path(config.checkpoint_dir) / 'final_model.pt'
-    torch.save(model.state_dict(), final_path)
-    print(f"\n✓ Final model saved to {final_path}")
-    
-    # Print final summary
-    print("\n" + "=" * 80)
-    print("Training Complete!")
-    print("=" * 80)
-    print(f"Best Evaluation Metrics:")
-    print(f"  Loss: {best_eval_loss:.4f}")
-    print(f"  WER:  {best_wer:.4f}")
-    print(f"  CER:  {best_cer:.4f}")
-    print("=" * 80)
-    
-    # Finish wandb
-    if config.wandb_mode != "disabled":
-        wandb.finish()
-
-
-if __name__ == '__main__':
-    main()
-
+        return output

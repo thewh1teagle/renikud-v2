@@ -74,7 +74,16 @@ def reconstruct_text_from_predictions(
     """
     Reconstruct text with nikud from model predictions.
     
-    This is a simplified version used for evaluation.
+    Args:
+        input_ids: Token IDs [seq_len]
+        vowel_preds: Vowel class predictions [seq_len] (0-5)
+        dagesh_preds: Dagesh binary predictions [seq_len] (0/1)
+        sin_preds: Sin binary predictions [seq_len] (0/1)
+        stress_preds: Stress binary predictions [seq_len] (0/1)
+        tokenizer: Tokenizer for decoding
+    
+    Returns:
+        Text with predicted nikud marks
     """
     from dataset import ID_TO_VOWEL
     from constants import DAGESH, S_SIN, STRESS_HATAMA, CAN_HAVE_DAGESH, CAN_HAVE_SIN, LETTERS
@@ -95,7 +104,6 @@ def reconstruct_text_from_predictions(
             break
         
         char = tokenizer.decode([token_id])
-        
         result.append(char)
         
         # Only add nikud marks for Hebrew letters
@@ -104,9 +112,9 @@ def reconstruct_text_from_predictions(
         
         diacritics = []
         
-        # Add vowel
+        # Add vowel (if not VOWEL_NONE)
         vowel_id = vowel_preds[i].item()
-        if vowel_id > 0:
+        if vowel_id > 0:  # 0 is VOWEL_NONE
             vowel_char = ID_TO_VOWEL.get(vowel_id)
             if vowel_char:
                 diacritics.append(vowel_char)
@@ -123,6 +131,7 @@ def reconstruct_text_from_predictions(
         if stress_preds[i].item() == 1:
             diacritics.append(STRESS_HATAMA)
         
+        # Sort diacritics for canonical order
         diacritics.sort()
         result.extend(diacritics)
     
@@ -187,7 +196,7 @@ def evaluate(
             sin_labels = batch['sin_labels'].to(device)
             stress_labels = batch['stress_labels'].to(device)
             
-            # Forward pass (without masking for loss calculation)
+            # Forward pass
             outputs = model(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
@@ -195,7 +204,6 @@ def evaluate(
                 dagesh_labels=dagesh_labels,
                 sin_labels=sin_labels,
                 stress_labels=stress_labels,
-                tokenizer=None  # Don't apply masking during loss calculation
             )
             
             # Accumulate losses
@@ -207,9 +215,9 @@ def evaluate(
             
             # Get predictions
             vowel_preds = torch.argmax(outputs['vowel_logits'], dim=-1)
-            dagesh_preds = torch.argmax(outputs['dagesh_logits'], dim=-1)
-            sin_preds = torch.argmax(outputs['sin_logits'], dim=-1)
-            stress_preds = torch.argmax(outputs['stress_logits'], dim=-1)
+            dagesh_preds = (torch.sigmoid(outputs['dagesh_logits']) > 0.5).long()
+            sin_preds = (torch.sigmoid(outputs['sin_logits']) > 0.5).long()
+            stress_preds = (torch.sigmoid(outputs['stress_logits']) > 0.5).long()
             
             # Calculate accuracies (only on non-ignored positions)
             vowel_mask = vowel_labels != -100
@@ -302,4 +310,3 @@ def evaluate(
         'wer': avg_wer,
         'cer': avg_cer,
     }
-

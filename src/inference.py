@@ -71,9 +71,9 @@ class NikudPredictor:
         input_ids = encoding['input_ids'].to(self.device)
         attention_mask = encoding['attention_mask'].to(self.device)
         
-        # Get predictions
+        # Get predictions (returns dict with vowel, dagesh, sin, stress)
         with torch.no_grad():
-            predictions = self.model.predict(input_ids, attention_mask, self.tokenizer)
+            predictions = self.model.predict(input_ids, attention_mask)
         
         # Reconstruct text with nikud
         nikud_text = self._reconstruct_text(
@@ -98,11 +98,11 @@ class NikudPredictor:
         Reconstruct Hebrew text with nikud marks from predictions.
         
         Args:
-            input_ids: Token IDs
-            vowel_preds: Predicted vowel labels
-            dagesh_preds: Predicted dagesh labels
-            sin_preds: Predicted sin labels
-            stress_preds: Predicted stress labels
+            input_ids: Token IDs [seq_len]
+            vowel_preds: Vowel class predictions [seq_len] (0-5)
+            dagesh_preds: Dagesh binary predictions [seq_len] (0/1)
+            sin_preds: Sin binary predictions [seq_len] (0/1)
+            stress_preds: Stress binary predictions [seq_len] (0/1)
             
         Returns:
             Text with nikud marks
@@ -124,9 +124,9 @@ class NikudPredictor:
             # Add predicted nikud marks
             diacritics = []
             
-            # Add vowel if predicted
+            # Add vowel (if not VOWEL_NONE = 0)
             vowel_id = vowel_preds[i].item()
-            if vowel_id > 0:  # 0 means no vowel
+            if vowel_id > 0:  # 0 is VOWEL_NONE
                 vowel_char = ID_TO_VOWEL.get(vowel_id)
                 if vowel_char:
                     diacritics.append(vowel_char)
@@ -219,4 +219,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
