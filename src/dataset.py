@@ -2,111 +2,37 @@
 Dataset preparation for Hebrew nikud prediction.
 
 This module handles:
-- Extracting nikud marks from Hebrew text
 - Creating input/label pairs for training
-- Encoding labels for vowels, dagesh, sin, and stress marks
+- Hybrid encoding: vowels as multi-class (0-5), others as binary
 """
 
-import unicodedata
-from typing import List, Tuple, Dict
+from typing import List
 import torch
-from normalize import normalize
-from constants import (
-    A_PATAH, E_TSERE, I_HIRIK, O_HOLAM, U_QUBUT,
-    DAGESH, S_SIN, STRESS_HATAMA,
-    CAN_HAVE_DAGESH, CAN_HAVE_SIN, LETTERS
-)
+from encode import extract_nikud_labels
+from constants import A_PATAH, E_TSERE, I_HIRIK, O_HOLAM, U_QUBUT
 
 
-# Label encoding for vowels
+# Vowel encoding (multi-class)
+VOWEL_NONE = 0
+VOWEL_PATAH = 1
+VOWEL_TSERE = 2
+VOWEL_HIRIK = 3
+VOWEL_HOLAM = 4
+VOWEL_QUBUT = 5
+
 VOWEL_TO_ID = {
-    None: 0,  # No vowel
-    A_PATAH: 1,
-    E_TSERE: 2,
-    I_HIRIK: 3,
-    O_HOLAM: 4,
-    U_QUBUT: 5,
+    None: VOWEL_NONE,
+    A_PATAH: VOWEL_PATAH,
+    E_TSERE: VOWEL_TSERE,
+    I_HIRIK: VOWEL_HIRIK,
+    O_HOLAM: VOWEL_HOLAM,
+    U_QUBUT: VOWEL_QUBUT,
 }
 
 ID_TO_VOWEL = {v: k for k, v in VOWEL_TO_ID.items()}
 
 
-def extract_nikud_labels(nikud_text: str) -> Tuple[str, List[Dict[str, int]]]:
-    """
-    Extract nikud labels from Hebrew text.
-    
-    Args:
-        nikud_text: Hebrew text with nikud marks
-        
-    Returns:
-        Tuple of (plain_text, labels) where:
-        - plain_text: Hebrew text without nikud marks
-        - labels: List of dicts with keys 'vowel', 'dagesh', 'sin', 'stress' for each character
-    """
-    # Normalize the text first
-    nikud_text = normalize(nikud_text)
-    
-    # Decompose to separate characters and diacritics
-    nikud_text = unicodedata.normalize('NFD', nikud_text)
-    
-    plain_chars = []
-    labels = []
-    
-    i = 0
-    while i < len(nikud_text):
-        char = nikud_text[i]
-        
-        # Handle non-Hebrew letters (spaces, punctuation, etc.)
-        if char not in LETTERS:
-            plain_chars.append(char)
-            # Mark as non-classifiable with -100 (will be ignored in loss)
-            labels.append({
-                'vowel': -100,
-                'dagesh': -100,
-                'sin': -100,
-                'stress': -100
-            })
-            i += 1
-            continue
-            
-        plain_chars.append(char)
-        
-        # Initialize labels for this Hebrew letter
-        label = {
-            'vowel': 0,  # No vowel by default
-            'dagesh': 0,  # No dagesh by default
-            'sin': 0,    # No sin by default
-            'stress': 0  # No stress by default
-        }
-        
-        # Look ahead for diacritics
-        j = i + 1
-        while j < len(nikud_text) and unicodedata.category(nikud_text[j]) in ['Mn', 'Me']:
-            diacritic = nikud_text[j]
-            
-            # Check for vowel
-            if diacritic in VOWEL_TO_ID:
-                label['vowel'] = VOWEL_TO_ID[diacritic]
-            # Check for dagesh (only valid on specific letters)
-            elif diacritic == DAGESH and char in CAN_HAVE_DAGESH:
-                label['dagesh'] = 1
-            # Check for sin (only valid on shin)
-            elif diacritic == S_SIN and char in CAN_HAVE_SIN:
-                label['sin'] = 1
-            # Check for stress
-            elif diacritic == STRESS_HATAMA:
-                label['stress'] = 1
-                
-            j += 1
-        
-        labels.append(label)
-        i = j
-    
-    plain_text = ''.join(plain_chars)
-    return plain_text, labels
-
-
-def prepare_training_data(nikud_text: str, tokenizer) -> Dict[str, torch.Tensor]:
+def prepare_training_data(nikud_text: str, tokenizer) -> dict:
     """
     Prepare training data from nikud'd Hebrew text.
     
@@ -129,14 +55,11 @@ def prepare_training_data(nikud_text: str, tokenizer) -> Dict[str, torch.Tensor]
     )
     
     # The tokenizer is character-level, so we need to align labels with tokens
-    # Get token ids (excluding special tokens for label alignment)
     input_ids = encoding['input_ids'][0]
-    
-    # Create label tensors
-    # We need to handle special tokens [CLS] and [SEP]
-    # Labels for special tokens should be -100 (ignored in loss)
     num_tokens = len(input_ids)
     
+    # Create label tensors
+    # Labels for special tokens should be -100 (ignored in loss)
     vowel_labels = torch.full((num_tokens,), -100, dtype=torch.long)
     dagesh_labels = torch.full((num_tokens,), -100, dtype=torch.long)
     sin_labels = torch.full((num_tokens,), -100, dtype=torch.long)
@@ -232,7 +155,7 @@ def split_dataset(texts: List[str], eval_max_lines: int, seed: int = 42) -> tupl
     return train_texts, eval_texts
 
 
-def collate_fn(batch: List[Dict]) -> Dict[str, torch.Tensor]:
+def collate_fn(batch: List[dict]) -> dict:
     """
     Collate function for DataLoader to handle variable-length sequences.
     
@@ -281,4 +204,3 @@ def collate_fn(batch: List[Dict]) -> Dict[str, torch.Tensor]:
         'plain_text': plain_texts,
         'original_text': original_texts,
     }
-

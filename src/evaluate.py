@@ -8,24 +8,13 @@ and per-task accuracies.
 import torch
 from torch.utils.data import DataLoader
 from typing import Dict
+from decode import reconstruct_text_from_predictions
 from tqdm import tqdm
 import unicodedata
 import jiwer
 
 
 def calculate_cer(predicted_text: str, target_text: str) -> float:
-    """
-    Calculate Character Error Rate between predicted and target text.
-    
-    Uses jiwer library for standard CER calculation.
-    
-    Args:
-        predicted_text: Predicted text with nikud
-        target_text: Ground truth text with nikud
-        
-    Returns:
-        CER as a float (0.0 = perfect, 1.0 = completely wrong)
-    """
     # Normalize both texts for consistent Unicode representation
     predicted_text = unicodedata.normalize('NFD', predicted_text)
     target_text = unicodedata.normalize('NFD', target_text)
@@ -39,18 +28,6 @@ def calculate_cer(predicted_text: str, target_text: str) -> float:
 
 
 def calculate_wer(predicted_text: str, target_text: str) -> float:
-    """
-    Calculate Word Error Rate between predicted and target text.
-    
-    Uses jiwer library for standard WER calculation.
-    
-    Args:
-        predicted_text: Predicted text with nikud
-        target_text: Ground truth text with nikud
-        
-    Returns:
-        WER as a float (0.0 = perfect, 1.0 = completely wrong)
-    """
     # Normalize both texts for consistent Unicode representation
     predicted_text = unicodedata.normalize('NFD', predicted_text)
     target_text = unicodedata.normalize('NFD', target_text)
@@ -63,74 +40,6 @@ def calculate_wer(predicted_text: str, target_text: str) -> float:
     return jiwer.wer(target_text, predicted_text)
 
 
-def reconstruct_text_from_predictions(
-    input_ids: torch.Tensor,
-    vowel_preds: torch.Tensor,
-    dagesh_preds: torch.Tensor,
-    sin_preds: torch.Tensor,
-    stress_preds: torch.Tensor,
-    tokenizer
-) -> str:
-    """
-    Reconstruct text with nikud from model predictions.
-    
-    This is a simplified version used for evaluation.
-    """
-    from dataset import ID_TO_VOWEL
-    from constants import DAGESH, S_SIN, STRESS_HATAMA, CAN_HAVE_DAGESH, CAN_HAVE_SIN, LETTERS
-    from normalize import normalize
-    
-    result = []
-    
-    # Get special token IDs
-    sep_token_id = tokenizer.sep_token_id
-    pad_token_id = tokenizer.pad_token_id
-    
-    # Skip [CLS] and stop at [SEP] or [PAD]
-    for i in range(1, len(input_ids)):
-        token_id = input_ids[i].item()
-        
-        # Stop at special tokens
-        if token_id == sep_token_id or token_id == pad_token_id:
-            break
-        
-        char = tokenizer.decode([token_id])
-        
-        result.append(char)
-        
-        # Only add nikud marks for Hebrew letters
-        if char not in LETTERS:
-            continue
-        
-        diacritics = []
-        
-        # Add vowel
-        vowel_id = vowel_preds[i].item()
-        if vowel_id > 0:
-            vowel_char = ID_TO_VOWEL.get(vowel_id)
-            if vowel_char:
-                diacritics.append(vowel_char)
-        
-        # Add dagesh
-        if dagesh_preds[i].item() == 1 and char in CAN_HAVE_DAGESH:
-            diacritics.append(DAGESH)
-        
-        # Add sin
-        if sin_preds[i].item() == 1 and char in CAN_HAVE_SIN:
-            diacritics.append(S_SIN)
-        
-        # Add stress
-        if stress_preds[i].item() == 1:
-            diacritics.append(STRESS_HATAMA)
-        
-        diacritics.sort()
-        result.extend(diacritics)
-    
-    text = ''.join(result)
-    text = normalize(text)  # Apply same normalization as training data
-    return text
-
-
 def evaluate(
     model,
     dataloader: DataLoader,
@@ -140,13 +49,6 @@ def evaluate(
 ) -> Dict[str, float]:
     """
     Evaluate model on a dataset.
-    
-    Args:
-        model: HebrewNikudModel instance
-        dataloader: DataLoader with evaluation data
-        device: Device to run evaluation on
-        tokenizer: Tokenizer for reconstruction
-        desc: Description for progress bar
         
     Returns:
         Dictionary with metrics: loss, wer, cer, and per-task accuracies
@@ -187,7 +89,7 @@ def evaluate(
             sin_labels = batch['sin_labels'].to(device)
             stress_labels = batch['stress_labels'].to(device)
             
-            # Forward pass (without masking for loss calculation)
+            # Forward pass
             outputs = model(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
@@ -195,7 +97,6 @@ def evaluate(
                 dagesh_labels=dagesh_labels,
                 sin_labels=sin_labels,
                 stress_labels=stress_labels,
-                tokenizer=None  # Don't apply masking during loss calculation
             )
             
             # Accumulate losses
@@ -207,9 +108,9 @@ def evaluate(
             
             # Get predictions
             vowel_preds = torch.argmax(outputs['vowel_logits'], dim=-1)
-            dagesh_preds = torch.argmax(outputs['dagesh_logits'], dim=-1)
-            sin_preds = torch.argmax(outputs['sin_logits'], dim=-1)
-            stress_preds = torch.argmax(outputs['stress_logits'], dim=-1)
+            dagesh_preds = (torch.sigmoid(outputs['dagesh_logits']) > 0.5).long()
+            sin_preds = (torch.sigmoid(outputs['sin_logits']) > 0.5).long()
+            stress_preds = (torch.sigmoid(outputs['stress_logits']) > 0.5).long()
             
             # Calculate accuracies (only on non-ignored positions)
             vowel_mask = vowel_labels != -100
@@ -302,4 +203,3 @@ def evaluate(
         'wer': avg_wer,
         'cer': avg_cer,
     }
-
