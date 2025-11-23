@@ -15,9 +15,10 @@ import jiwer
 
 
 def calculate_cer(predicted_text: str, target_text: str) -> float:
-    # Normalize both texts for consistent Unicode representation
-    predicted_text = unicodedata.normalize('NFD', predicted_text)
-    target_text = unicodedata.normalize('NFD', target_text)
+    # Apply same normalization as training data
+    from normalize import normalize
+    predicted_text = normalize(predicted_text)
+    target_text = normalize(target_text)
     
     # Handle empty strings
     if not target_text:
@@ -28,9 +29,10 @@ def calculate_cer(predicted_text: str, target_text: str) -> float:
 
 
 def calculate_wer(predicted_text: str, target_text: str) -> float:
-    # Normalize both texts for consistent Unicode representation
-    predicted_text = unicodedata.normalize('NFD', predicted_text)
-    target_text = unicodedata.normalize('NFD', target_text)
+    # Apply same normalization as training data
+    from normalize import normalize
+    predicted_text = normalize(predicted_text)
+    target_text = normalize(target_text)
     
     # Handle empty strings
     if not target_text.strip():
