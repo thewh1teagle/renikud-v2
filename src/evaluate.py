@@ -15,18 +15,6 @@ import jiwer
 
 
 def calculate_cer(predicted_text: str, target_text: str) -> float:
-    """
-    Calculate Character Error Rate between predicted and target text.
-    
-    Uses jiwer library for standard CER calculation.
-    
-    Args:
-        predicted_text: Predicted text with nikud
-        target_text: Ground truth text with nikud
-        
-    Returns:
-        CER as a float (0.0 = perfect, 1.0 = completely wrong)
-    """
     # Normalize both texts for consistent Unicode representation
     predicted_text = unicodedata.normalize('NFD', predicted_text)
     target_text = unicodedata.normalize('NFD', target_text)
@@ -40,18 +28,6 @@ def calculate_cer(predicted_text: str, target_text: str) -> float:
 
 
 def calculate_wer(predicted_text: str, target_text: str) -> float:
-    """
-    Calculate Word Error Rate between predicted and target text.
-    
-    Uses jiwer library for standard WER calculation.
-    
-    Args:
-        predicted_text: Predicted text with nikud
-        target_text: Ground truth text with nikud
-        
-    Returns:
-        WER as a float (0.0 = perfect, 1.0 = completely wrong)
-    """
     # Normalize both texts for consistent Unicode representation
     predicted_text = unicodedata.normalize('NFD', predicted_text)
     target_text = unicodedata.normalize('NFD', target_text)
@@ -73,13 +49,6 @@ def evaluate(
 ) -> Dict[str, float]:
     """
     Evaluate model on a dataset.
-    
-    Args:
-        model: HebrewNikudModel instance
-        dataloader: DataLoader with evaluation data
-        device: Device to run evaluation on
-        tokenizer: Tokenizer for reconstruction
-        desc: Description for progress bar
         
     Returns:
         Dictionary with metrics: loss, wer, cer, and per-task accuracies
