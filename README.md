@@ -32,7 +32,7 @@ uv run python src/inference.py --checkpoint checkpoints/best_model.pt --file inp
 
 # Upload model to Hugging Face
 
-```coonsole
+```console
 uv pip install huggingface_hub
 git config --global credential.helper store # Allow clone private repo from HF
 # Get token from https://huggingface.co/settings/tokens
