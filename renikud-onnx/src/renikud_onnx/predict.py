@@ -83,7 +83,6 @@ def reconstruct_text(
     # Combine and normalize
     text = ''.join(result)
     text = unicodedata.normalize('NFD', text)
-    text = unicodedata.normalize('NFC', text)
     
     return text
 
