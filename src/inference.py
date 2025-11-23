@@ -115,22 +115,11 @@ def main():
     predictor = NikudPredictor(args.checkpoint, device=args.device)
     
     # Get input text
-    if args.text:
-        texts = [args.text]
-    elif args.file:
+    if args.file:
         with open(args.file, 'r', encoding='utf-8') as f:
             texts = [line.strip() for line in f if line.strip()]
     else:
-        # Interactive mode
-        print("Interactive mode. Enter Hebrew text (Ctrl+C to exit):")
-        texts = []
-        try:
-            while True:
-                text = input("> ")
-                if text.strip():
-                    texts.append(text.strip())
-        except KeyboardInterrupt:
-            print("\nExiting...")
+        texts = [args.text]
     
     # Generate predictions
     print("\n" + "=" * 80)

@@ -24,9 +24,6 @@ Add nikud to plain Hebrew text:
 # Single text
 uv run python src/inference.py --checkpoint checkpoints/best_model.pt --text "האיש שלא רצה"
 
-# Interactive mode
-uv run python src/inference.py --checkpoint checkpoints/best_model.pt
-
 # From file
 uv run python src/inference.py --checkpoint checkpoints/best_model.pt --file input.txt
 ```
