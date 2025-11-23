@@ -7,14 +7,9 @@ This module handles loading the trained model and generating nikud predictions.
 import torch
 from transformers import AutoTokenizer
 from typing import List
-import unicodedata
 
 from model import HebrewNikudModel
-from dataset import ID_TO_VOWEL
-from constants import (
-    DAGESH, S_SIN, STRESS_HATAMA,
-    CAN_HAVE_DAGESH, CAN_HAVE_SIN, LETTERS
-)
+from decode import reconstruct_text_from_predictions
 
 
 class NikudPredictor:
@@ -75,83 +70,17 @@ class NikudPredictor:
         with torch.no_grad():
             predictions = self.model.predict(input_ids, attention_mask)
         
-        # Reconstruct text with nikud
-        nikud_text = self._reconstruct_text(
+        # Reconstruct text with nikud using shared function
+        nikud_text = reconstruct_text_from_predictions(
             input_ids[0],
             predictions['vowel'][0],
             predictions['dagesh'][0],
             predictions['sin'][0],
-            predictions['stress'][0]
+            predictions['stress'][0],
+            self.tokenizer
         )
         
         return nikud_text
-    
-    def _reconstruct_text(
-        self,
-        input_ids: torch.Tensor,
-        vowel_preds: torch.Tensor,
-        dagesh_preds: torch.Tensor,
-        sin_preds: torch.Tensor,
-        stress_preds: torch.Tensor
-    ) -> str:
-        """
-        Reconstruct Hebrew text with nikud marks from predictions.
-        
-        Args:
-            input_ids: Token IDs [seq_len]
-            vowel_preds: Vowel class predictions [seq_len] (0-5)
-            dagesh_preds: Dagesh binary predictions [seq_len] (0/1)
-            sin_preds: Sin binary predictions [seq_len] (0/1)
-            stress_preds: Stress binary predictions [seq_len] (0/1)
-            
-        Returns:
-            Text with nikud marks
-        """
-        result = []
-        
-        # Skip [CLS] token at position 0 and [SEP] at the end
-        for i in range(1, len(input_ids) - 1):
-            token_id = input_ids[i].item()
-            char = self.tokenizer.decode([token_id])
-            
-            # Add base character
-            result.append(char)
-            
-            # Only add nikud marks for Hebrew letters (skip spaces, punctuation, etc.)
-            if char not in LETTERS:
-                continue
-            
-            # Add predicted nikud marks
-            diacritics = []
-            
-            # Add vowel (if not VOWEL_NONE = 0)
-            vowel_id = vowel_preds[i].item()
-            if vowel_id > 0:  # 0 is VOWEL_NONE
-                vowel_char = ID_TO_VOWEL.get(vowel_id)
-                if vowel_char:
-                    diacritics.append(vowel_char)
-            
-            # Add dagesh if predicted and valid
-            if dagesh_preds[i].item() == 1 and char in CAN_HAVE_DAGESH:
-                diacritics.append(DAGESH)
-            
-            # Add sin if predicted and valid
-            if sin_preds[i].item() == 1 and char in CAN_HAVE_SIN:
-                diacritics.append(S_SIN)
-            
-            # Add stress if predicted
-            if stress_preds[i].item() == 1:
-                diacritics.append(STRESS_HATAMA)
-            
-            # Sort diacritics (canonical order)
-            diacritics.sort()
-            result.extend(diacritics)
-        
-        # Normalize to combine characters properly
-        text = ''.join(result)
-        text = unicodedata.normalize('NFC', text)
-        
-        return text
     
     def predict_batch(self, texts: List[str]) -> List[str]:
         """

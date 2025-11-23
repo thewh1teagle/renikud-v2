@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """
+wget https://huggingface.co/datasets/thewh1teagle/phonikud-data/resolve/main/knesset_nikud_v6.txt.7z
+sudo apt install p7zip-full -y
+7z x knesset_nikud_v6.txt.7z
+
 Script to extract lines from a file and remove specific characters.
 """
 import argparse

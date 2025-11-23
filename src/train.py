@@ -14,19 +14,33 @@ from dataset import (
     collate_fn
 )
 from train_loop import NikudTrainer, set_seed
-from config import Config
+from config import get_args
 import wandb
 
 
 def main():
     """Main training function with HuggingFace Trainer."""
     # Parse configuration
-    config = Config.from_args()
+    config = get_args()
     
     print("=" * 80)
     print("Hebrew Nikud Training (HuggingFace Trainer)")
     print("=" * 80)
-    print(config)
+    print("Configuration:")
+    print(f"  train_file: {config.train_file}")
+    print(f"  eval_max_lines: {config.eval_max_lines}")
+    print(f"  seed: {config.seed}")
+    print(f"  batch_size: {config.batch_size}")
+    print(f"  learning_rate: {config.learning_rate}")
+    print(f"  max_epochs: {config.max_epochs}")
+    print(f"  max_grad_norm: {config.max_grad_norm}")
+    print(f"  model_name: {config.model_name}")
+    print(f"  dropout: {config.dropout}")
+    print(f"  checkpoint_dir: {config.checkpoint_dir}")
+    print(f"  device: {config.device}")
+    print(f"  wandb_mode: {config.wandb_mode}")
+    print(f"  wandb_project: {config.wandb_project}")
+    print(f"  wandb_run_name: {config.wandb_run_name}")
     print("=" * 80)
     
     # Set random seed
