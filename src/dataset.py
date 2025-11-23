@@ -8,6 +8,7 @@ This module handles:
 
 from typing import List
 import torch
+from tqdm import tqdm
 from encode import extract_nikud_labels
 from constants import A_PATAH, E_TSERE, I_HIRIK, O_HOLAM, U_QUBUT
 
@@ -96,7 +97,11 @@ class NikudDataset(torch.utils.data.Dataset):
             texts: List of Hebrew texts with nikud marks
             tokenizer: HuggingFace tokenizer
         """
-        self.data = [prepare_training_data(text, tokenizer) for text in texts]
+        print(f"Processing {len(texts)} texts...")
+        self.data = [
+            prepare_training_data(text, tokenizer) 
+            for text in tqdm(texts, desc="Preparing dataset", unit="texts")
+        ]
     
     def __len__(self):
         return len(self.data)
