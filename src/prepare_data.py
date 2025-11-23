@@ -5,6 +5,8 @@ sudo apt install p7zip-full -y
 7z x knesset_nikud_v6.txt.7z
 
 Script to extract lines from a file and remove specific characters.
+
+uv run src/prepare_data.py --input knesset_nikud_v6.txt --output ./data/train_1m.txt --lines 1000000
 """
 import argparse
 from tqdm import tqdm

@@ -3,15 +3,15 @@ Training script for Hebrew Nikud BERT model with HuggingFace Trainer.
 
 Train the model on Hebrew text with nikud:
     uv run python src/train.py \
-        --train-file data/train_100k.txt \
-        --eval-max-lines 1000 \
-        --batch-size 8 \
+        --train-file data/train_1m.txt \
+        --eval-max-lines 200 \
+        --batch-size 16 \
         --max-epochs 999999 \
         --lr 1e-4 \
-        --checkpoint-dir checkpoints/run_100k \
+        --checkpoint-dir checkpoints/run_1m \
         --wandb-mode online \
         --wandb-project renikud-v2 \
-        --wandb-run-name run_100k
+        --wandb-run-name run_1m
 
 Resume training from checkpoint:
     uv run python src/train.py --train-file data/train_100k.txt --resume checkpoints/run_100k/checkpoint-6000
