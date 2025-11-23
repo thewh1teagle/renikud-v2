@@ -39,3 +39,9 @@ git config --global credential.helper store # Allow clone private repo from HF
 uv run hf auth login --token "token" --add-to-git-credential #
 uv run hf upload --repo-type model renikud-v2 ./checkpoints/checkpoint-10000
 ```
+
+# Download model from Hugging Face
+
+```console
+uv run hf download --repo-type model thewh1teagle/renikud-v2 --local-dir ./checkpoints/latest
+```
