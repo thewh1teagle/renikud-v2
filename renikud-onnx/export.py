@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
 Export Hebrew Nikud model from safetensors to ONNX format.
+
+Example:
+    uv run python export.py --checkpoint checkpoints/latest.pt --output model.onnx
 """
 
 import argparse
